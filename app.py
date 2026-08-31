@@ -13,7 +13,7 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# 2. Configurar el cliente de Google GenAI con la API Key de Streamlit
+# 2. Obtener API Key de los Secrets
 # -----------------------------------------------------------------------------
 API_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
 
@@ -64,30 +64,27 @@ st.caption("Tutor socrático e inteligente de Ciencias Naturales (Física, Quím
 st.info("¡Hola! Soy ThinkLab 🌿, tu tutora socrática de ciencias. Te guío paso a paso sin darte la respuesta final para que aprendas a resolver tus tareas. ¿Qué duda vamos a explorar hoy?")
 
 # -----------------------------------------------------------------------------
-# 5. Memoria de sesión de chat
+# 5. Historial de chat
 # -----------------------------------------------------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Mostrar el historial en pantalla
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 # -----------------------------------------------------------------------------
-# 6. Interacción de Chat directa con el cliente
+# 6. Interacción de Chat
 # -----------------------------------------------------------------------------
 if prompt := st.chat_input("Escribe tu duda de física, química o biología..."):
-    # Guardar y mostrar el mensaje del usuario
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Generar respuesta directamente sin mantener objetos de sesión corruptos
     with st.chat_message("assistant"):
         with st.spinner("ThinkLab está pensando... 🔬"):
             try:
-                # Construir el historial para el nuevo SDK
+                # Construcción del contexto del chat
                 contents = []
                 for msg in st.session_state.messages:
                     role = "user" if msg["role"] == "user" else "model"
@@ -107,4 +104,18 @@ if prompt := st.chat_input("Escribe tu duda de física, química o biología..."
                 st.session_state.messages.append({"role": "assistant", "content": respuesta_texto})
                 
             except Exception as e:
-                st.error(f"Error al conectar con Gemini: {e}")
+                # Fallback automático a gemini-1.5-flash por si la cuenta tiene restricción de versión
+                try:
+                    response = client.models.generate_content(
+                        model="gemini-1.5-flash",
+                        contents=contents,
+                        config=types.GenerateContentConfig(
+                            system_instruction=SYSTEM_PROMPT,
+                            temperature=0.7,
+                        )
+                    )
+                    respuesta_texto = response.text
+                    st.markdown(respuesta_texto)
+                    st.session_state.messages.append({"role": "assistant", "content": respuesta_texto})
+                except Exception as e2:
+                    st.error(f"Error al conectar con Gemini: {e2}")
