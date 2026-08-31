@@ -1,31 +1,19 @@
 import os
 import streamlit as st
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 
-# -----------------------------------------------------------------------------
-# 1. Configuración de la página web
-# -----------------------------------------------------------------------------
+# Configuración de la página
 st.set_page_config(
     page_title="ThinkLab - Tutora Socrática",
     page_icon="🌿",
     layout="centered"
 )
 
-# -----------------------------------------------------------------------------
-# 2. Obtener API Key de los Secrets
-# -----------------------------------------------------------------------------
-API_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
+# Obtener API Key de los Secrets de Streamlit
+api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
+genai.configure(api_key=api_key)
 
-@st.cache_resource
-def get_genai_client(key):
-    return genai.Client(api_key=key)
-
-client = get_genai_client(API_KEY)
-
-# -----------------------------------------------------------------------------
-# 3. System Prompt de ThinkLab
-# -----------------------------------------------------------------------------
+# System Prompt
 SYSTEM_PROMPT = """
 Eres ThinkLab, una tutora socrática e inteligente especializada en Ciencias Naturales (Química, Física y Biología). 
 Tus usuarios serán tanto estudiantes como adultos.
@@ -47,9 +35,7 @@ INTEGRACIÓN DE CIENCIAS:
 Cuando sea posible, conecta las tres ciencias (Química, Física y Biología).
 """
 
-# -----------------------------------------------------------------------------
-# 4. Encabezado e interfaz gráfica
-# -----------------------------------------------------------------------------
+# Interfaz gráfica
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     if os.path.exists("logo.jpeg"):
@@ -63,9 +49,13 @@ st.title("ThinkLab 🌿")
 st.caption("Tutor socrático e inteligente de Ciencias Naturales (Física, Química y Biología)")
 st.info("¡Hola! Soy ThinkLab 🌿, tu tutora socrática de ciencias. Te guío paso a paso sin darte la respuesta final para que aprendas a resolver tus tareas. ¿Qué duda vamos a explorar hoy?")
 
-# -----------------------------------------------------------------------------
-# 5. Historial de chat
-# -----------------------------------------------------------------------------
+# Inicializar modelo
+model = genai.GenerativeModel(
+    model_name="gemini-1.5-flash",
+    system_instruction=SYSTEM_PROMPT
+)
+
+# Memoria de sesión
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -73,9 +63,7 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# -----------------------------------------------------------------------------
-# 6. Interacción de Chat
-# -----------------------------------------------------------------------------
+# Entrada de usuario
 if prompt := st.chat_input("Escribe tu duda de física, química o biología..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -84,38 +72,16 @@ if prompt := st.chat_input("Escribe tu duda de física, química o biología..."
     with st.chat_message("assistant"):
         with st.spinner("ThinkLab está pensando... 🔬"):
             try:
-                # Construcción del contexto del chat
-                contents = []
-                for msg in st.session_state.messages:
+                # Formatear el historial de chat para la API
+                history = []
+                for msg in st.session_state.messages[:-1]:
                     role = "user" if msg["role"] == "user" else "model"
-                    contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])]))
+                    history.append({"role": role, "parts": [msg["content"]]})
 
-                response = client.models.generate_content(
-                    model="gemini-2.5-flash",
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=SYSTEM_PROMPT,
-                        temperature=0.7,
-                    )
-                )
+                chat = model.start_chat(history=history)
+                response = chat.send_message(prompt)
                 
-                respuesta_texto = response.text
-                st.markdown(respuesta_texto)
-                st.session_state.messages.append({"role": "assistant", "content": respuesta_texto})
-                
+                st.markdown(response.text)
+                st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception as e:
-                # Fallback automático a gemini-1.5-flash por si la cuenta tiene restricción de versión
-                try:
-                    response = client.models.generate_content(
-                        model="gemini-1.5-flash",
-                        contents=contents,
-                        config=types.GenerateContentConfig(
-                            system_instruction=SYSTEM_PROMPT,
-                            temperature=0.7,
-                        )
-                    )
-                    respuesta_texto = response.text
-                    st.markdown(respuesta_texto)
-                    st.session_state.messages.append({"role": "assistant", "content": respuesta_texto})
-                except Exception as e2:
-                    st.error(f"Error al conectar con Gemini: {e2}")
+                st.error(f"Error al conectar con Gemini: {e}")
