@@ -9,9 +9,9 @@ st.set_page_config(
     layout="centered"
 )
 
-# Obtener API Key de los Secrets de Streamlit
-api_key = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
-genai.configure(api_key=api_key)
+# Leer API Key de los Secrets de Streamlit
+API_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
+genai.configure(api_key=API_KEY)
 
 # System Prompt
 SYSTEM_PROMPT = """
@@ -49,13 +49,13 @@ st.title("ThinkLab 🌿")
 st.caption("Tutor socrático e inteligente de Ciencias Naturales (Física, Química y Biología)")
 st.info("¡Hola! Soy ThinkLab 🌿, tu tutora socrática de ciencias. Te guío paso a paso sin darte la respuesta final para que aprendas a resolver tus tareas. ¿Qué duda vamos a explorar hoy?")
 
-# Inicializar modelo
+# Inicializar modelo compatible con la librería vieja
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
+    model_name="gemini-1.5-flash-latest",
     system_instruction=SYSTEM_PROMPT
 )
 
-# Memoria de sesión
+# Historial de chat
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -72,16 +72,9 @@ if prompt := st.chat_input("Escribe tu duda de física, química o biología..."
     with st.chat_message("assistant"):
         with st.spinner("ThinkLab está pensando... 🔬"):
             try:
-                # Formatear el historial de chat para la API
-                history = []
-                for msg in st.session_state.messages[:-1]:
-                    role = "user" if msg["role"] == "user" else "model"
-                    history.append({"role": role, "parts": [msg["content"]]})
-
-                chat = model.start_chat(history=history)
-                response = chat.send_message(prompt)
-                
+                # Generación directa sin historial guardado corrupto
+                response = model.generate_content(prompt)
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception as e:
-                st.error(f"Error al conectar con Gemini: {e}")
+                st.error(f"Error de conexión: {e}")
