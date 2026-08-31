@@ -15,10 +15,7 @@ st.set_page_config(
 # -----------------------------------------------------------------------------
 # 2. Configurar la API Key de Gemini desde los Secrets de Streamlit
 # -----------------------------------------------------------------------------
-try:
-    API_KEY = st.secrets["GEMINI_API_KEY"]
-except Exception:
-    API_KEY = os.environ.get("GEMINI_API_KEY", "")
+API_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
 
 os.environ["GEMINI_API_KEY"] = API_KEY
 
@@ -53,7 +50,7 @@ Cuando sea posible, conecta las tres ciencias (Química, Física y Biología).
 """
 
 # -----------------------------------------------------------------------------
-# 4. Encabezado e interfaz gráfica (Con Logo Centrado)
+# 4. Encabezado e interfaz gráfica
 # -----------------------------------------------------------------------------
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
@@ -76,7 +73,7 @@ if "messages" not in st.session_state:
 
 if "chat_session" not in st.session_state:
     st.session_state.chat_session = client.chats.create(
-        model="gemini-2.5-flash",
+        model="gemini-2.0-flash",
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
             temperature=0.7,
@@ -92,12 +89,10 @@ for message in st.session_state.messages:
 # 6. Entrada de texto para el usuario
 # -----------------------------------------------------------------------------
 if prompt := st.chat_input("Escribe tu duda de física, química o biología..."):
-    # Agregar mensaje del usuario a la pantalla
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Enviar a la IA y mostrar respuesta
     with st.chat_message("assistant"):
         with st.spinner("ThinkLab está pensando... 🔬"):
             try:
@@ -105,9 +100,8 @@ if prompt := st.chat_input("Escribe tu duda de física, química o biología..."
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception:
-                # Si la sesión expira o falla, la reconectamos automáticamente
                 st.session_state.chat_session = client.chats.create(
-                    model="gemini-2.5-flash",
+                    model="gemini-2.0-flash",
                     config=types.GenerateContentConfig(
                         system_instruction=SYSTEM_PROMPT,
                         temperature=0.7,
