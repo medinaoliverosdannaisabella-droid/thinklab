@@ -72,13 +72,16 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "chat_session" not in st.session_state:
-    st.session_state.chat_session = client.chats.create(
-        model="gemini-2.0-flash",
-        config=types.GenerateContentConfig(
-            system_instruction=SYSTEM_PROMPT,
-            temperature=0.7,
+    try:
+        st.session_state.chat_session = client.chats.create(
+            model="gemini-1.5-flash",
+            config=types.GenerateContentConfig(
+                system_instruction=SYSTEM_PROMPT,
+                temperature=0.7,
+            )
         )
-    )
+    except Exception:
+        pass
 
 # Mostrar historial de mensajes guardados en la pantalla
 for message in st.session_state.messages:
@@ -100,8 +103,9 @@ if prompt := st.chat_input("Escribe tu duda de física, química o biología..."
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception:
+                # Si la sesión vieja tenía el modelo incorrecto, la fuerza a regenerarse con el modelo válido
                 st.session_state.chat_session = client.chats.create(
-                    model="gemini-2.0-flash",
+                    model="gemini-1.5-flash",
                     config=types.GenerateContentConfig(
                         system_instruction=SYSTEM_PROMPT,
                         temperature=0.7,
