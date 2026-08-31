@@ -1,6 +1,7 @@
 import os
 import streamlit as st
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 # -----------------------------------------------------------------------------
 # 1. Configuración de la página web
@@ -12,13 +13,18 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# 2. Configurar API Key
+# 2. Configurar la API Key de Gemini desde los Secrets de Streamlit
 # -----------------------------------------------------------------------------
 API_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
-genai.configure(api_key=API_KEY)
+
+@st.cache_resource
+def get_genai_client(key):
+    return genai.Client(api_key=key)
+
+client = get_genai_client(API_KEY)
 
 # -----------------------------------------------------------------------------
-# 3. System Prompt
+# 3. System Prompt de ThinkLab
 # -----------------------------------------------------------------------------
 SYSTEM_PROMPT = """
 Eres ThinkLab, una tutora socrática e inteligente especializada en Ciencias Naturales (Química, Física y Biología). 
@@ -42,7 +48,7 @@ Cuando sea posible, conecta las tres ciencias (Química, Física y Biología).
 """
 
 # -----------------------------------------------------------------------------
-# 4. Interfaz gráfica
+# 4. Encabezado e interfaz gráfica
 # -----------------------------------------------------------------------------
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
@@ -58,12 +64,7 @@ st.caption("Tutor socrático e inteligente de Ciencias Naturales (Física, Quím
 st.info("¡Hola! Soy ThinkLab 🌿, tu tutora socrática de ciencias. Te guío paso a paso sin darte la respuesta final para que aprendas a resolver tus tareas. ¿Qué duda vamos a explorar hoy?")
 
 # -----------------------------------------------------------------------------
-# 5. Inicializar el modelo universal gemini-pro
-# -----------------------------------------------------------------------------
-model = genai.GenerativeModel(model_name="gemini-pro")
-
-# -----------------------------------------------------------------------------
-# 6. Historial y Chat
+# 5. Memoria de sesión
 # -----------------------------------------------------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -72,6 +73,9 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+# -----------------------------------------------------------------------------
+# 6. Interacción de Chat
+# -----------------------------------------------------------------------------
 if prompt := st.chat_input("Escribe tu duda de física, química o biología..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -80,11 +84,16 @@ if prompt := st.chat_input("Escribe tu duda de física, química o biología..."
     with st.chat_message("assistant"):
         with st.spinner("ThinkLab está pensando... 🔬"):
             try:
-                # Incluir las instrucciones del sistema directamente en la consulta
-                prompt_completo = f"{SYSTEM_PROMPT}\n\nConsulta del usuario: {prompt}"
-                response = model.generate_content(prompt_completo)
-                
-                st.markdown(response.text)
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
+                response = client.models.generate_content(
+                    model="gemini-2.5-flash",
+                    contents=prompt,
+                    config=types.GenerateContentConfig(
+                        system_instruction=SYSTEM_PROMPT,
+                        temperature=0.7,
+                    )
+                )
+                respuesta_texto = response.text
+                st.markdown(respuesta_texto)
+                st.session_state.messages.append({"role": "assistant", "content": respuesta_texto})
             except Exception as e:
                 st.error(f"Error de conexión: {e}")
