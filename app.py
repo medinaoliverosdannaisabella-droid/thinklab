@@ -2,18 +2,24 @@ import os
 import streamlit as st
 import google.generativeai as genai
 
-# Configuración de la página
+# -----------------------------------------------------------------------------
+# 1. Configuración de la página web
+# -----------------------------------------------------------------------------
 st.set_page_config(
     page_title="ThinkLab - Tutora Socrática",
     page_icon="🌿",
     layout="centered"
 )
 
-# Leer API Key de los Secrets de Streamlit
+# -----------------------------------------------------------------------------
+# 2. Configurar API Key
+# -----------------------------------------------------------------------------
 API_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
 genai.configure(api_key=API_KEY)
 
-# System Prompt
+# -----------------------------------------------------------------------------
+# 3. System Prompt
+# -----------------------------------------------------------------------------
 SYSTEM_PROMPT = """
 Eres ThinkLab, una tutora socrática e inteligente especializada en Ciencias Naturales (Química, Física y Biología). 
 Tus usuarios serán tanto estudiantes como adultos.
@@ -35,7 +41,9 @@ INTEGRACIÓN DE CIENCIAS:
 Cuando sea posible, conecta las tres ciencias (Química, Física y Biología).
 """
 
-# Interfaz gráfica
+# -----------------------------------------------------------------------------
+# 4. Interfaz gráfica
+# -----------------------------------------------------------------------------
 col1, col2, col3 = st.columns([1, 2, 1])
 with col2:
     if os.path.exists("logo.jpeg"):
@@ -49,13 +57,14 @@ st.title("ThinkLab 🌿")
 st.caption("Tutor socrático e inteligente de Ciencias Naturales (Física, Química y Biología)")
 st.info("¡Hola! Soy ThinkLab 🌿, tu tutora socrática de ciencias. Te guío paso a paso sin darte la respuesta final para que aprendas a resolver tus tareas. ¿Qué duda vamos a explorar hoy?")
 
-# Inicializar modelo compatible con la librería vieja
-model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash",
-    system_instruction=SYSTEM_PROMPT
-)
+# -----------------------------------------------------------------------------
+# 5. Inicializar el modelo universal gemini-pro
+# -----------------------------------------------------------------------------
+model = genai.GenerativeModel(model_name="gemini-pro")
 
-# Historial de chat
+# -----------------------------------------------------------------------------
+# 6. Historial y Chat
+# -----------------------------------------------------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
@@ -63,7 +72,6 @@ for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
-# Entrada de usuario
 if prompt := st.chat_input("Escribe tu duda de física, química o biología..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
@@ -72,8 +80,10 @@ if prompt := st.chat_input("Escribe tu duda de física, química o biología..."
     with st.chat_message("assistant"):
         with st.spinner("ThinkLab está pensando... 🔬"):
             try:
-                # Generación directa sin historial guardado corrupto
-                response = model.generate_content(prompt)
+                # Incluir las instrucciones del sistema directamente en la consulta
+                prompt_completo = f"{SYSTEM_PROMPT}\n\nConsulta del usuario: {prompt}"
+                response = model.generate_content(prompt_completo)
+                
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception as e:
