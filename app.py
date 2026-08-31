@@ -13,17 +13,15 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# 2. Configurar la API Key de Gemini desde los Secrets de Streamlit
+# 2. Configurar el cliente de Google GenAI con la API Key de Streamlit
 # -----------------------------------------------------------------------------
 API_KEY = st.secrets.get("GEMINI_API_KEY", os.environ.get("GEMINI_API_KEY", ""))
 
-os.environ["GEMINI_API_KEY"] = API_KEY
-
 @st.cache_resource
-def get_genai_client():
-    return genai.Client(api_key=API_KEY)
+def get_genai_client(key):
+    return genai.Client(api_key=key)
 
-client = get_genai_client()
+client = get_genai_client(API_KEY)
 
 # -----------------------------------------------------------------------------
 # 3. System Prompt de ThinkLab
@@ -66,51 +64,47 @@ st.caption("Tutor socrático e inteligente de Ciencias Naturales (Física, Quím
 st.info("¡Hola! Soy ThinkLab 🌿, tu tutora socrática de ciencias. Te guío paso a paso sin darte la respuesta final para que aprendas a resolver tus tareas. ¿Qué duda vamos a explorar hoy?")
 
 # -----------------------------------------------------------------------------
-# 5. Memoria de sesión de chat en Streamlit
+# 5. Memoria de sesión de chat
 # -----------------------------------------------------------------------------
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-if "chat_session" not in st.session_state:
-    try:
-        st.session_state.chat_session = client.chats.create(
-            model="gemini-1.5-flash",
-            config=types.GenerateContentConfig(
-                system_instruction=SYSTEM_PROMPT,
-                temperature=0.7,
-            )
-        )
-    except Exception:
-        pass
-
-# Mostrar historial de mensajes guardados en la pantalla
+# Mostrar el historial en pantalla
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
 # -----------------------------------------------------------------------------
-# 6. Entrada de texto para el usuario
+# 6. Interacción de Chat directa con el cliente
 # -----------------------------------------------------------------------------
 if prompt := st.chat_input("Escribe tu duda de física, química o biología..."):
+    # Guardar y mostrar el mensaje del usuario
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
+    # Generar respuesta directamente sin mantener objetos de sesión corruptos
     with st.chat_message("assistant"):
         with st.spinner("ThinkLab está pensando... 🔬"):
             try:
-                response = st.session_state.chat_session.send_message(prompt)
-                st.markdown(response.text)
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
-            except Exception:
-                # Si la sesión vieja tenía el modelo incorrecto, la fuerza a regenerarse con el modelo válido
-                st.session_state.chat_session = client.chats.create(
-                    model="gemini-1.5-flash",
+                # Construir el historial para el nuevo SDK
+                contents = []
+                for msg in st.session_state.messages:
+                    role = "user" if msg["role"] == "user" else "model"
+                    contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])]))
+
+                response = client.models.generate_content(
+                    model="gemini-2.0-flash",
+                    contents=contents,
                     config=types.GenerateContentConfig(
                         system_instruction=SYSTEM_PROMPT,
                         temperature=0.7,
                     )
                 )
-                response = st.session_state.chat_session.send_message(prompt)
-                st.markdown(response.text)
-                st.session_state.messages.append({"role": "assistant", "content": response.text})
+                
+                respuesta_texto = response.text
+                st.markdown(respuesta_texto)
+                st.session_state.messages.append({"role": "assistant", "content": respuesta_texto})
+                
+            except Exception as e:
+                st.error(f"Error al conectar con Gemini: {e}")
