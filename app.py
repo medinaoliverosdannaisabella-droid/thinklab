@@ -51,7 +51,7 @@ st.info("¡Hola! Soy ThinkLab 🌿, tu tutora socrática de ciencias. Te guío p
 
 # Inicializar modelo compatible con la librería vieja
 model = genai.GenerativeModel(
-    model_name="gemini-1.5-flash-latest",
+    model_name="gemini-1.5-flash",
     system_instruction=SYSTEM_PROMPT
 )
 
