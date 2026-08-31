@@ -94,7 +94,7 @@ if prompt := st.chat_input("Escribe tu duda de física, química o biología..."
                     contents.append(types.Content(role=role, parts=[types.Part.from_text(text=msg["content"])]))
 
                 response = client.models.generate_content(
-                    model="gemini-2.0-flash",
+                    model="gemini-2.5-flash",
                     contents=contents,
                     config=types.GenerateContentConfig(
                         system_instruction=SYSTEM_PROMPT,
