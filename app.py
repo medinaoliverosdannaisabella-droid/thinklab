@@ -13,9 +13,13 @@ st.set_page_config(
 )
 
 # -----------------------------------------------------------------------------
-# 2. Configurar la API Key de Gemini de forma estable
+# 2. Configurar la API Key de Gemini desde los Secrets de Streamlit
 # -----------------------------------------------------------------------------
-API_KEY = "AQ.Ab8RN6LN4NJNW_mCQZSqe-Ux-rGPTjzu0ihUSKhtbVWRFoBdJw"
+try:
+    API_KEY = st.secrets["GEMINI_API_KEY"]
+except Exception:
+    API_KEY = os.environ.get("GEMINI_API_KEY", "")
+
 os.environ["GEMINI_API_KEY"] = API_KEY
 
 @st.cache_resource
@@ -72,7 +76,7 @@ if "messages" not in st.session_state:
 
 if "chat_session" not in st.session_state:
     st.session_state.chat_session = client.chats.create(
-        model="gemini-3.6-flash",
+        model="gemini-2.5-flash",
         config=types.GenerateContentConfig(
             system_instruction=SYSTEM_PROMPT,
             temperature=0.7,
@@ -101,9 +105,9 @@ if prompt := st.chat_input("Escribe tu duda de física, química o biología..."
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
             except Exception as e:
-                # Si la sesión expira, la reconectamos automáticamente
+                # Si la sesión expira o falla, la reconectamos automáticamente
                 st.session_state.chat_session = client.chats.create(
-                    model="gemini-3.6-flash",
+                    model="gemini-2.5-flash",
                     config=types.GenerateContentConfig(
                         system_instruction=SYSTEM_PROMPT,
                         temperature=0.7,
