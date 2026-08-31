@@ -104,7 +104,7 @@ if prompt := st.chat_input("Escribe tu duda de física, química o biología..."
                 response = st.session_state.chat_session.send_message(prompt)
                 st.markdown(response.text)
                 st.session_state.messages.append({"role": "assistant", "content": response.text})
-            except Exception as e:
+            except Exception:
                 # Si la sesión expira o falla, la reconectamos automáticamente
                 st.session_state.chat_session = client.chats.create(
                     model="gemini-2.5-flash",
